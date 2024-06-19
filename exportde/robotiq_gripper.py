@@ -8,11 +8,6 @@ from typing import Union, Tuple, OrderedDict
 
 
 class RobotiqGripper:
-    def __getattribute__(self, item):
-        return lambda *a, **k: None
-
-
-class _RobotiqGripper:
     """
     Communicates with the gripper directly, via socket with string commands, leveraging string names for variables.
     """
@@ -145,7 +140,6 @@ class _RobotiqGripper:
             self._set_var(self.ATR, 0)
         time.sleep(0.5)
 
-
     def activate(self, auto_calibrate: bool = True):
         """Resets the activation flag in the gripper, and sets it back to one, clearing previous fault flags.
         :param auto_calibrate: Whether to calibrate the minimum and maximum positions based on actual motion.
@@ -268,7 +262,7 @@ class _RobotiqGripper:
         var_dict = OrderedDict([(self.POS, clip_pos), (self.SPE, clip_spe), (self.FOR, clip_for), (self.GTO, 1)])
         return self._set_vars(var_dict), clip_pos
 
-    def move_and_wait_for_pos(self, position: int, speed: int, force: int) -> Tuple[int, ObjectStatus]:  # noqa
+    def move_and_wait_for_pos(self, position: int, speed: int = 255, force: int = 255) -> Tuple[int, ObjectStatus]:  # noqa
         """Sends commands to start moving towards the given position, with the specified speed and force, and
         then waits for the move to complete.
         :param position: Position to move to [min_position, max_position]

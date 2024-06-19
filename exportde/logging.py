@@ -21,32 +21,25 @@ def get_logger() -> logging.Logger:
     stream_handler.setLevel(logging.INFO)
     logger.addHandler(stream_handler)
 
-    fhandler = logging.FileHandler(filename=os.path.abspath("logs"), encoding="utf-8")
+    # filename = os.path.join(os.path.expanduser("~"), "exportde/logs")
+    filename = os.path.abspath("logs")
+    fhandler = logging.FileHandler(filename=filename, encoding="utf-8")
     fhandler.setLevel(logging.ERROR)
     fhandler.setFormatter(formatter)
     logger.addHandler(fhandler)
     return logger
 
 
-def expo_handler(exc_type=None, msg=""):
-    """Provide unified way to specify and log the exception.
-
-    If after exception handling in a function one still occur, than it can be replaced by an exp_type
-    in order to be handled by
-    """
+def expo_handler(fn):
+    """Provide unified way to log execution."""
     logger = get_logger()
 
-    def wrap(fn):
-        @functools.wraps(fn)
-        def _inner(*args, **kwargs):
-            logger.info(f"Executing function: {fn.__name__}")
-            try:
-                return fn(*args, **kwargs)
-            except Exception as exc:
-                logger.error(exc, exc_info=True)
-                if exc_type is None:
-                    raise exc
-                else:
-                    raise exc_type(msg) from exc
-        return _inner
+    @functools.wraps(fn)
+    def wrap(*args, **kwargs):
+        logger.info(f"Executing function: {fn.__name__}")
+        try:
+            return fn(*args, **kwargs)
+        except Exception as exc:
+            logger.error(exc, exc_info=True)
+            raise exc
     return wrap

@@ -1,8 +1,8 @@
 import exportde
 
 
-@exportde.expo_handler()
-def freedrive(ifs: exportde.RobotInterfaces):
+@exportde.expo_handler
+def freedrive(ifs: exportde.RobotInterfaces) -> None:
     ifs.rtde_control.teachMode()
     input()
     ifs.rtde_control.endTeachMode()

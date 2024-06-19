@@ -6,8 +6,8 @@ from dashboard_client import DashboardClient
 from rtde_control import RTDEControlInterface
 from rtde_receive import RTDEReceiveInterface
 
-from exportde import exceptions
 from exportde.robotiq_gripper import RobotiqGripper
+from exportde.logging import expo_handler, get_logger
 
 __all__ = ("RobotInterfaces",)
 
@@ -19,12 +19,12 @@ class RobotInterfaces:
     def __init__(self,
                  host: str,
                  ur_cap_port: int = 50002,
-                 frequency: float = -1.,
+                 frequency: float = 10.,
                  gripper_port: int = 63352,
                  ) -> None:
         dashboard_client = DashboardClient(host, verbose=True)
         dashboard_client.connect()
-        # assert dashboard_client.isInRemoteControl(), "Remote control mode must be set."
+        assert dashboard_client.isInRemoteControl(), "Remote control mode must be set."
         rtde_receive = RTDEReceiveInterface(host, frequency=frequency)
         flags = RTDEControlInterface.FLAG_USE_EXT_UR_CAP
         flags |= RTDEControlInterface.FLAG_UPLOAD_SCRIPT
@@ -32,7 +32,8 @@ class RobotInterfaces:
         rtde_control = RTDEControlInterface(host, frequency=frequency, flags=flags, ur_cap_port=ur_cap_port)
         gripper = RobotiqGripper()
         gripper.connect(host, gripper_port)
-        gripper.activate(auto_calibrate=False)
+        if not gripper.is_active():
+            gripper.activate(auto_calibrate=False)
 
         self.dashboard_client = dashboard_client
         self.rtde_control = rtde_control
@@ -40,12 +41,7 @@ class RobotInterfaces:
         self.gripper = gripper
 
     def __enter__(self) -> Self:
-        # After the following checks robot state can be considered healthy.
-        assert self.dashboard_client.isConnected()
-        assert self.rtde_receive.isConnected()
-        assert self.rtde_control.isConnected()
-        assert self.rtde_control.isProgramRunning()
-        # assert self.gripper.is_active()
+        self.assert_ready()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
@@ -53,10 +49,22 @@ class RobotInterfaces:
         if exc_type is not None:
             if issubclass(exc_type, KeyboardInterrupt):
                 is_handled = True
-            if issubclass(exc_type, exceptions.ProtectiveStop):
-                self.unlock_protective_stop()
-        self.disconnect()
+        time.sleep(0.1)  # let values update
+        if (safety := self.rtde_receive.getSafetyMode()) != 1:
+            get_logger().info("Handling safety mode change: %d.", safety)
+            self.handle_safety()
         return is_handled
+
+    def assert_ready(self) -> bool:
+        """After the following checks robot's state can be considered healthy."""
+        assert self.dashboard_client.isConnected(), "Dashboard client is not connected."
+        assert self.rtde_receive.isConnected(), "RTDE Receive is not connected."
+        assert not self.rtde_receive.isProtectiveStopped(), "Protective stop."
+        assert self.rtde_control.isConnected(), "RTDE Control is not connected."
+        assert self.rtde_control.isSteady(), "Robot is not steady."
+        assert self.rtde_control.isProgramRunning(), "Program is not running."
+        assert self.gripper.is_active(), "Gripper is not active."
+        return True
 
     def disconnect(self) -> None:
         self.rtde_control.stopScript()
@@ -65,8 +73,15 @@ class RobotInterfaces:
         self.gripper.disconnect()
         self.dashboard_client.disconnect()
 
-    def unlock_protective_stop(self) -> None:
-        print("Unlocking protective stop, don't Ctrl+C yet.")
-        time.sleep(5.1)
-        self.dashboard_client.closeSafetyPopup()
-        self.dashboard_client.unlockProtectiveStop()
+    @expo_handler
+    def handle_safety(self) -> None:
+        match self.rtde_receive.getSafetyMode():
+            case 3:  # protective mode
+                print("Unlocking protective stop, don't Ctrl+C yet.")
+                time.sleep(5.1)  # required by UR soft.
+                self.dashboard_client.closeSafetyPopup()
+                self.dashboard_client.unlockProtectiveStop()
+            case 6 | 7:  # emergency stop
+                print("Robot was emergency stopped. Manual unlock is required.")
+            case _:
+                pass
