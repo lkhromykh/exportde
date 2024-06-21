@@ -48,6 +48,7 @@ class RobotInterfaces:
         is_handled = False
         if exc_type is not None:
             if issubclass(exc_type, KeyboardInterrupt):
+                self.rtde_control.triggerProtectiveStop()
                 is_handled = True
         time.sleep(0.1)  # let values update
         if (safety := self.rtde_receive.getSafetyMode()) != 1:
@@ -83,5 +84,7 @@ class RobotInterfaces:
                 self.dashboard_client.unlockProtectiveStop()
             case 6 | 7:  # emergency stop
                 print("Robot was emergency stopped. Manual unlock is required.")
+            case 8:  # violation
+                print("Violation ?")
             case _:
                 pass

@@ -242,7 +242,7 @@ class RobotiqGripper:
         if log:
             print(f"Gripper auto-calibrated to [{self.get_min_position()}, {self.get_max_position()}]")
 
-    def move(self, position: int, speed: int, force: int) -> Tuple[bool, int]:
+    def move(self, position: int, speed: int = 255, force: int = 255) -> Tuple[bool, int]:
         """Sends commands to start moving towards the given position, with the specified speed and force.
         :param position: Position to move to [min_position, max_position]
         :param speed: Speed to move at [min_speed, max_speed]

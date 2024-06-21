@@ -1,24 +1,21 @@
-import numpy as np
+import time
 
 import exportde
-from safe_home import safe_home
-from bucket_manip import pick_bucket, place_bucket
+import movements
+import bucket_manip
 
 
 @exportde.expo_handler
 def disload(ifs: exportde.RobotInterfaces) -> None:
-    safe_home(ifs)
-    ifs.rtde_control.moveJ(exportde.BEGIN_POSITION_J)
-    pick_bucket(ifs)
-    # ifs.rtde_control.setPayload()
-    tcp_pos = ifs.rtde_receive.getActualTCPPose()
-    tcp_pos[2] += .1
-    ifs.rtde_control.moveL(tcp_pos)
-    joint_pos = ifs.rtde_receive.getActualQ()
-    joint_pos[0] += np.pi / 2
-    ifs.gripper.move(position=0, speed=255, force=255)
-    place_bucket(ifs)
-    safe_home(ifs)
+    movements.unfold(ifs)
+    ifs.rtde_control.moveJ(exportde.UNFOLD_POSITION_J)
+    bucket_manip.pick_bucket(ifs)
+    pos = ifs.rtde_receive.getActualTCPPose()
+    pos[2] += 0.2
+    ifs.rtde_control.moveL(pos)
+    time.sleep(2.)
+    bucket_manip.place_bucket(ifs)
+    movements.fold(ifs)
 
 
 if __name__ == "__main__":
