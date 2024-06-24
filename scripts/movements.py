@@ -1,23 +1,21 @@
-from typing import Literal
-
 import numpy as np
 import exportde
 
 JOINT_TOLERANCE = 0.01
+SAFE_HEIGHT = 0.0
 
 
 @exportde.expo_handler
-def unfold(ifs: exportde.RobotInterfaces, safe_height: float = -0.5) -> None:
+def unfold(ifs: exportde.RobotInterfaces) -> None:
     ifs.gripper.move(0)
     cur_joints = ifs.rtde_receive.getActualQ()
     if np.allclose(cur_joints, exportde.UNFOLD_POSITION_J, atol=JOINT_TOLERANCE):
         return
 
     tcp_pos = ifs.rtde_receive.getActualTCPPose()
-    if tcp_pos[2] < safe_height:
-        tcp_pos[2] = safe_height
+    if tcp_pos[2] < SAFE_HEIGHT:
+        tcp_pos[2] = SAFE_HEIGHT
         ifs.rtde_control.moveL(tcp_pos)
-    print("HERE")
     ifs.rtde_control.moveJ(exportde.UNFOLD_POSITION_J)
 
 
@@ -33,5 +31,15 @@ def fold(ifs: exportde.RobotInterfaces) -> None:
 
 
 if __name__ == "__main__":
+    import sys
+    known_moves = dict(fold=fold, unfold=unfold)
+
+    if len(sys.argv) != 2:
+        print("Specify a move: ", known_moves.keys())
+        exit(1)
+    move = sys.argv[1]
+    if move not in known_moves:
+        print("Wrong argument: ", move)
+        exit(1)
     with exportde.RobotInterfaces(exportde.HOST) as ifs:
-        unfold(ifs)
+        known_moves[move](ifs)

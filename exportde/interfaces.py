@@ -35,6 +35,7 @@ class RobotInterfaces:
                 rtde_control = RTDEControlInterface(host, frequency=frequency, flags=flags, ur_cap_port=ur_cap_port)
             except RuntimeError as exc:
                 if twice: raise exc
+                time.sleep(1.)
                 get_logger().info("Unable to connect to RTDEControlInterface. Trying one more time.")
             else:
                 break
