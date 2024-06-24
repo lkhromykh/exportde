@@ -1,3 +1,4 @@
 ```bash
-pip install git+https://github.com/lkhromykh/exportde
+git clone git+https://github.com/lkhromykh/exportde
+pip install .
 ```

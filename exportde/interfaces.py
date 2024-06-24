@@ -30,15 +30,7 @@ class RobotInterfaces:
         flags = RTDEControlInterface.FLAG_USE_EXT_UR_CAP
         flags |= RTDEControlInterface.FLAG_UPLOAD_SCRIPT
         flags |= RTDEControlInterface.FLAG_VERBOSE
-        for twice in range(2):
-            try:
-                rtde_control = RTDEControlInterface(host, frequency=frequency, flags=flags, ur_cap_port=ur_cap_port)
-            except RuntimeError as exc:
-                if twice: raise exc
-                time.sleep(1.)
-                get_logger().info("Unable to connect to RTDEControlInterface. Trying one more time.")
-            else:
-                break
+        rtde_control = RTDEControlInterface(host, frequency=frequency, flags=flags, ur_cap_port=ur_cap_port)
         gripper = RobotiqGripper()
         gripper.connect(host, gripper_port)
         if not gripper.is_active():
@@ -59,13 +51,14 @@ class RobotInterfaces:
             if issubclass(exc_type, KeyboardInterrupt):
                 self.rtde_control.triggerProtectiveStop()
                 is_handled = True
-        self.rtde_control.setPayload(constants.GRIPPER_MASS, constants.GRIPPER_COG)
-        time.sleep(0.1)  # let values update
+        # self.rtde_control.setPayload(constants.GRIPPER_MASS, constants.GRIPPER_COG)
+        # time.sleep(0.1)  # let values update
         if not self.rtde_control.isSteady():
             get_logger().warning("Robot is not steady upon exit.")
         if (safety := self.rtde_receive.getSafetyMode()) != 1:
             get_logger().info("Handling safety mode change: %d.", safety)
             self.handle_safety()
+        self.disconnect()
         return is_handled
 
     def assert_ready(self) -> bool:

@@ -3,6 +3,7 @@ import exportde
 
 @exportde.expo_handler
 def freedrive(ifs: exportde.RobotInterfaces) -> None:
+    """Activate freedrive mode."""
     ifs.rtde_control.teachMode()
     print("Input anything to stop freedrive.")
     input()

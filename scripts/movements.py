@@ -7,6 +7,7 @@ SAFE_HEIGHT = 0.0
 
 @exportde.expo_handler
 def unfold(ifs: exportde.RobotInterfaces) -> None:
+    """Move to the working position above a platform."""
     ifs.gripper.move(0)
     cur_joints = ifs.rtde_receive.getActualQ()
     if np.allclose(cur_joints, exportde.UNFOLD_POSITION_J, atol=JOINT_TOLERANCE):
@@ -21,6 +22,7 @@ def unfold(ifs: exportde.RobotInterfaces) -> None:
 
 @exportde.expo_handler
 def fold(ifs: exportde.RobotInterfaces) -> None:
+    """Move to folded position."""
     cur_joint = ifs.rtde_receive.getActualQ()
     if np.allclose(cur_joint, exportde.FOLD_POSITION_J, atol=JOINT_TOLERANCE):
         return
