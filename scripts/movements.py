@@ -32,6 +32,13 @@ def fold(ifs: exportde.RobotInterfaces) -> None:
     ifs.rtde_control.moveJ(exportde.FOLD_POSITION_J)
 
 
+def moveZ(ifs: exportde.RobotInterfaces, height: float) -> None:
+    """Only horizontal position change."""
+    pos = ifs.rtde_receive.getActualTCPPose()
+    pos[2] += height
+    ifs.rtde_control.moveL(pos)
+
+
 if __name__ == "__main__":
     import sys
     known_moves = dict(fold=fold, unfold=unfold)

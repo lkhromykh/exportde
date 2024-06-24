@@ -1,7 +1,5 @@
-import time
-
 import numpy as np
-from scipy.spatial.transform import Rotation
+from scipy.spatial.transform import Rotation as R
 
 import exportde
 from exportde.exceptions import FailedGraspException, ArmMoveException
@@ -22,28 +20,20 @@ def _get_payload_params(mass: list[float], distance: list[np.ndarray]) -> tuple[
 def pick_bucket(ifs: exportde.RobotInterfaces, bucket_pos: exportde.Position) -> None:
     ifs.gripper.move(0)
     pos, rotvec = np.split(np.asarray(bucket_pos), 2)
-    rot = Rotation.from_rotvec(rotvec)
-    premove = rot.apply([0, 0, -0.15])
-    premove += pos
-    premove = np.concatenate([premove, rotvec])
-    breakpoint()
-    ifs.rtde_control.moveL(premove)
+    premove = R.from_rotvec(rotvec).apply([0, 0, -0.15])  # side grasp move
+    ifs.rtde_control.moveL(np.r_[pos + premove, rotvec])
     ifs.rtde_control.moveL(bucket_pos, asynchronous=True)
-    _, status = ifs.gripper.move_and_wait_for_pos(255, speed=140, force=0)
+    _, status = ifs.gripper.move_and_wait_for_pos(255, speed=120, force=0)
     if status != ifs.gripper.ObjectStatus.STOPPED_INNER_OBJECT:
         exportde.get_logger().info("Object was not detected by the gripper.")
-        # raise FailedGraspException("Unsuccessful grasp. Resetting position.")
-    exit()  # testing w/o premove
+        raise FailedGraspException("Unsuccessful grasp. Resetting position.")
     payload, cog = _get_payload_params(
         [exportde.GRIPPER_MASS, exportde.BUCKET_MASS],
         [exportde.GRIPPER_COG, exportde.BUCKET_COG]
     )
     ifs.rtde_control.setPayload(payload, cog)
     exportde.get_logger().debug("Updated payload: %s, %s",
-                               ifs.rtde_receive.getPayloadCog(), ifs.rtde_receive.getPayload())
-    pos = ifs.rtde_receive.getActualTCPPose()
-    pos[2] += 0.05
-    ifs.rtde_control.moveL(pos)
+                                ifs.rtde_receive.getPayloadCog(), ifs.rtde_receive.getPayload())
 
 
 @exportde.expo_handler
@@ -58,11 +48,10 @@ def place_bucket(ifs: exportde.RobotInterfaces) -> None:
     exportde.get_logger().info("Bucket was left at: %s", ifs.rtde_receive.getActualTCPPose())
     _, status = ifs.gripper.move_and_wait_for_pos(0)
     ifs.rtde_control.setPayload(exportde.GRIPPER_MASS, exportde.GRIPPER_COG)
-    time.sleep(0.05)
     exportde.get_logger().debug("Updated payload: %s, %s",
-                               ifs.rtde_receive.getPayloadCog(), ifs.rtde_receive.getPayload())
-
+                                ifs.rtde_receive.getPayloadCog(), ifs.rtde_receive.getPayload())
     if status != ifs.gripper.ObjectStatus.AT_DEST:
+        ifs.gripper.move_and_wait_for_pos(255)
         raise FailedGraspException("Something preventing gripper from opening.")
 
 

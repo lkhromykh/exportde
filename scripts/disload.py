@@ -1,3 +1,5 @@
+import numpy as np
+from scipy.spatial.transform import Rotation as R
 import exportde
 
 import movements
@@ -7,69 +9,87 @@ RIGHT_ROTVEC = [0, exportde.hpi, 0]
 LEFT_ROTVEC = [2.221, 0, -2.221]
 
 
-def _get_bucket_position(height: float, place: str) -> exportde.Position:
+def _r2l(rot_):
+    """Rotation to rotvec list."""
+    return rot_.as_rotvec().tolist()
+
+
+def _get_bucket_position(height: float, place: str) -> np.ndarray:
+    """Predefined hardcoded positions with varying height."""
+    hpi = exportde.hpi
+    rot = R.from_rotvec([0, hpi, 0]) * R.from_rotvec([hpi, 0, 0])
     match place:
         case "center":
-            return [-0.4255, 0, height, 1.20919958, 1.20919958, -1.20919958]
+            position = list(exportde.BUCKET_POSITION_XY) + [height] + _r2l(rot)
         case "right":
-            return [0.2, -exportde.PLATFORM_HALFWIDTH, height, 0, exportde.hpi, 0]
+            rot = R.from_rotvec([0, 0, hpi]) * rot
+            position = [0.2, -exportde.PLATFORM_HALFWIDTH, height] + _r2l(rot)
         case "left":
-            return [-0.25, exportde.PLATFORM_HALFWIDTH, height, 2.221, 0, -2.221]
+            rot = R.from_rotvec([0, 0, -hpi]) * rot
+            position = [-0.25, exportde.PLATFORM_HALFWIDTH, height] + _r2l(rot)
         case _:
             raise ValueError(place)
+    return np.asarray(position)
 
 
 @exportde.expo_handler
 def disload(ifs: exportde.RobotInterfaces, side: exportde.Side) -> None:
+    """Pick an object from the platform and place it on the plane on the left or right side."""
     movements.unfold(ifs)
     bucket_pos = _get_bucket_position(exportde.BUCKET_HEIGHT, "center")
     bucket_manip.pick_bucket(ifs, bucket_pos)
+    movements.moveZ(ifs, 0.05)
     height = ifs.rtde_receive.getActualTCPPose()[2]
-    match side:
-        case "right":
-            next_pos = [0.2, -exportde.PLATFORM_HALFWIDTH, height] + RIGHT_ROTVEC
-        case "left":
-            next_pos = [-0.25, exportde.PLATFORM_HALFWIDTH, height] + LEFT_ROTVEC
-        case _:
-            raise ValueError(side)
+    next_pos = _get_bucket_position(height, side)
     ifs.rtde_control.moveJ_IK(next_pos, speed=0.5)
     bucket_manip.place_bucket(ifs)
+
     if side == "right":
-        rotvec = [0, -exportde.pi, 0]
+        rot = R.from_rotvec([0, exportde.hpi, 0])
     else:
-        rotvec = [exportde.pi, 0, 0]
+        rot = R.from_rotvec([0, -exportde.hpi, 0])
     tcp_pos = ifs.rtde_receive.getActualTCPPose()
-    tcp_pos = tcp_pos[:3] + rotvec
+    rot = rot * R.from_rotvec(tcp_pos[3:])
+    tcp_pos = tcp_pos[:3] + _r2l(rot)
     ifs.rtde_control.moveL(tcp_pos)
-    movements.fold(ifs)
+    movements.unfold(ifs)
 
 
 @exportde.expo_handler
 def load(ifs: exportde.RobotInterfaces, side: exportde.Side) -> None:
-    SAFE_HEIGHT = 0.3
-
     movements.unfold(ifs)
-    bucket_pos = _get_bucket_position(0.2, side)
+    # todo: height should be changed to smthing like BUCKET_HEIGHT - PLATFORM_HEIGHT
+    bucket_pos = _get_bucket_position(0.11, side)
     move = bucket_pos.copy()
-    move[2] = SAFE_HEIGHT
-    ifs.rtde_control.moveJ_IK(move)
+    move[2] = ifs.rtde_receive.getActualTCPPose()[2]
+    pos, rotvec = np.split(np.asarray(move), [3])
+    diff = R.from_rotvec(rotvec).apply([0, 0, -0.15])
+    ifs.rtde_control.moveJ_IK(np.r_[pos + diff, rotvec])
     bucket_manip.pick_bucket(ifs, bucket_pos)
     ifs.rtde_control.moveL(move)
-    center = _get_bucket_position(exportde.BUCKET_HEIGHT, "center")
-    center[:2] = exportde.BUCKET_POSITION_XY
-    ifs.rtde_control.moveL(center)
+    center = _get_bucket_position(exportde.BUCKET_HEIGHT + 0.05, "center")
+    ifs.rtde_control.moveJ_IK(center)
     bucket_manip.place_bucket(ifs)
-    movements.fold(ifs)
+    tcp_pos = ifs.rtde_receive.getActualTCPPose()
+    rot = R.from_rotvec([exportde.hpi, 0, 0]) * R.from_rotvec(tcp_pos[3:])
+    tcp_pos = tcp_pos[:3] + _r2l(rot)
+    ifs.rtde_control.moveL(tcp_pos)
+    movements.unfold(ifs)
 
 
 if __name__ == "__main__":
     import sys
-    if len(sys.argv) != 2:
-        print("Specify a side: left or right.")
+    if len(sys.argv) != 3:
+        print("python disload.py program side")
+        print("-program = disload, load")
+        print("-side = left, right")
         exit(1)
-    side = sys.argv[1]
+    program, side = sys.argv[1:3]
+    if program not in ["disload", "load"]:
+        print("Unknown program: ", program)
+        exit(1)
     if side not in ["left", "right"]:
         print("Wrong argument: ", side)
         exit(1)
     with exportde.RobotInterfaces(exportde.HOST) as ifs:
-        disload(ifs, side=side)
+        eval(program)(ifs, side)

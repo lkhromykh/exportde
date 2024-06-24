@@ -51,8 +51,8 @@ class RobotInterfaces:
             if issubclass(exc_type, KeyboardInterrupt):
                 self.rtde_control.triggerProtectiveStop()
                 is_handled = True
-        # self.rtde_control.setPayload(constants.GRIPPER_MASS, constants.GRIPPER_COG)
-        # time.sleep(0.1)  # let values update
+        self.rtde_control.setPayload(constants.GRIPPER_MASS, constants.GRIPPER_COG)
+        time.sleep(0.1)  # let values update
         if not self.rtde_control.isSteady():
             get_logger().warning("Robot is not steady upon exit.")
         if (safety := self.rtde_receive.getSafetyMode()) != 1:
