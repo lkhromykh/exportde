@@ -8,6 +8,7 @@ from rtde_receive import RTDEReceiveInterface
 
 from exportde.robotiq_gripper import RobotiqGripper
 from exportde.logging import expo_handler, get_logger
+from exportde import constants
 
 __all__ = ("RobotInterfaces",)
 
@@ -24,12 +25,19 @@ class RobotInterfaces:
                  ) -> None:
         dashboard_client = DashboardClient(host, verbose=True)
         dashboard_client.connect()
-        assert dashboard_client.isInRemoteControl(), "Remote control mode must be set."
+        assert dashboard_client.isInRemoteControl(), "Robot should be in remote control."
         rtde_receive = RTDEReceiveInterface(host, frequency=frequency)
         flags = RTDEControlInterface.FLAG_USE_EXT_UR_CAP
         flags |= RTDEControlInterface.FLAG_UPLOAD_SCRIPT
         flags |= RTDEControlInterface.FLAG_VERBOSE
-        rtde_control = RTDEControlInterface(host, frequency=frequency, flags=flags, ur_cap_port=ur_cap_port)
+        for twice in range(2):
+            try:
+                rtde_control = RTDEControlInterface(host, frequency=frequency, flags=flags, ur_cap_port=ur_cap_port)
+            except RuntimeError as exc:
+                if twice: raise exc
+                get_logger().info("Unable to connect to RTDEControlInterface. Trying one more time.")
+            else:
+                break
         gripper = RobotiqGripper()
         gripper.connect(host, gripper_port)
         if not gripper.is_active():
@@ -50,7 +58,10 @@ class RobotInterfaces:
             if issubclass(exc_type, KeyboardInterrupt):
                 self.rtde_control.triggerProtectiveStop()
                 is_handled = True
+        self.rtde_control.setPayload(constants.GRIPPER_MASS, constants.GRIPPER_COG)
         time.sleep(0.1)  # let values update
+        if not self.rtde_control.isSteady():
+            get_logger().warning("Robot is not steady upon exit.")
         if (safety := self.rtde_receive.getSafetyMode()) != 1:
             get_logger().info("Handling safety mode change: %d.", safety)
             self.handle_safety()

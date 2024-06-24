@@ -21,7 +21,6 @@ def get_logger() -> logging.Logger:
     stream_handler.setLevel(logging.INFO)
     logger.addHandler(stream_handler)
 
-    # filename = os.path.join(os.path.expanduser("~"), "exportde/logs")
     filename = os.path.abspath("logs")
     fhandler = logging.FileHandler(filename=filename, encoding="utf-8")
     fhandler.setLevel(logging.ERROR)
