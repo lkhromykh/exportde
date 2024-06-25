@@ -13,7 +13,40 @@ from exportde import constants
 __all__ = ("RobotInterfaces",)
 
 
+class _RTDEControlInterface(RTDEControlInterface):
+    """Overwrite default speed and acceleration and prohibit usage of movePath syntax."""
+
+    def moveL(self, pose: list[float],
+              speed=constants.MOVEL_SPEED,
+              acceleration=constants.MOVEL_ACCELERATION,
+              asynchronous=False
+              ) -> bool:
+        return super().moveL(pose, speed, acceleration, asynchronous)
+
+    def moveJ_IK(self, pose: list[float],
+                 speed=constants.MOVEJ_SPEED,
+                 acceleration=constants.MOVEJ_ACCELERATION,
+                 asynchronous=False
+                 ) -> bool:
+        return super().moveJ_IK(pose, speed, acceleration, asynchronous)
+
+    def moveJ(self, pose: list[float],
+              speed=constants.MOVEJ_SPEED,
+              acceleration=constants.MOVEJ_ACCELERATION,
+              asynchronous=False
+              ) -> bool:
+        return super().moveJ(pose, speed, acceleration, asynchronous)
+
+    def moveL_FK(self, pose: list[float],
+                 speed=constants.MOVEL_SPEED,
+                 acceleration=constants.MOVEL_ACCELERATION,
+                 asynchronous=False
+                 ) -> bool:
+        return super().moveL_FK(pose, speed, acceleration, asynchronous)
+
+
 class RobotInterfaces:
+    """Handle all the required connections."""
 
     __slots__ = ("dashboard_client", "rtde_control", "rtde_receive", "gripper")
 
@@ -30,7 +63,7 @@ class RobotInterfaces:
         flags = RTDEControlInterface.FLAG_USE_EXT_UR_CAP
         flags |= RTDEControlInterface.FLAG_UPLOAD_SCRIPT
         flags |= RTDEControlInterface.FLAG_VERBOSE
-        rtde_control = RTDEControlInterface(host, frequency=frequency, flags=flags, ur_cap_port=ur_cap_port)
+        rtde_control = _RTDEControlInterface(host, frequency=frequency, flags=flags, ur_cap_port=ur_cap_port)
         gripper = RobotiqGripper()
         gripper.connect(host, gripper_port)
         if not gripper.is_active():

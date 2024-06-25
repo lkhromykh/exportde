@@ -5,9 +5,6 @@ import exportde
 import movements
 import bucket_manip
 
-RIGHT_ROTVEC = [0, exportde.hpi, 0]
-LEFT_ROTVEC = [2.221, 0, -2.221]
-
 
 def _r2l(rot_):
     """Rotation to rotvec list."""
@@ -33,16 +30,16 @@ def _get_bucket_position(height: float, place: str) -> np.ndarray:
 
 
 @exportde.expo_handler
-def disload(ifs: exportde.RobotInterfaces, side: exportde.Side) -> None:
+def disload(ifs: exportde.RobotInterfaces, side: exportde.Side) -> list[float]:
     """Pick an object from the platform and place it on the plane on the left or right side."""
     movements.unfold(ifs)
     bucket_pos = _get_bucket_position(exportde.BUCKET_HEIGHT, "center")
     bucket_manip.pick_bucket(ifs, bucket_pos)
-    movements.moveZ(ifs, 0.05)
+    movements.moveZ(ifs, exportde.PEDESTAL_HEIGHT)
     height = ifs.rtde_receive.getActualTCPPose()[2]
     next_pos = _get_bucket_position(height, side)
-    ifs.rtde_control.moveJ_IK(next_pos, speed=0.5)
-    bucket_manip.place_bucket(ifs)
+    ifs.rtde_control.moveJ_IK(next_pos)
+    last_known_bucket_pos = bucket_manip.place_bucket(ifs)
 
     if side == "right":
         rot = R.from_rotvec([0, exportde.hpi, 0])
@@ -53,13 +50,20 @@ def disload(ifs: exportde.RobotInterfaces, side: exportde.Side) -> None:
     tcp_pos = tcp_pos[:3] + _r2l(rot)
     ifs.rtde_control.moveL(tcp_pos)
     movements.unfold(ifs)
+    return last_known_bucket_pos
 
 
 @exportde.expo_handler
-def load(ifs: exportde.RobotInterfaces, side: exportde.Side) -> None:
+def load(ifs: exportde.RobotInterfaces,
+         side: exportde.Side,
+         last_known_bucket_pos: list[float] | None = None
+         ) -> None:
     movements.unfold(ifs)
-    # todo: height should be changed to smthing like BUCKET_HEIGHT - PLATFORM_HEIGHT
-    bucket_pos = _get_bucket_position(0.11, side)
+    if last_known_bucket_pos is not None:
+        bucket_pos = last_known_bucket_pos
+    else:
+        # todo: height should be changed to smthing like BUCKET_HEIGHT - PLATFORM_HEIGHT
+        bucket_pos = _get_bucket_position(0.147, side)
     move = bucket_pos.copy()
     move[2] = ifs.rtde_receive.getActualTCPPose()[2]
     pos, rotvec = np.split(np.asarray(move), [3])
@@ -67,7 +71,7 @@ def load(ifs: exportde.RobotInterfaces, side: exportde.Side) -> None:
     ifs.rtde_control.moveJ_IK(np.r_[pos + diff, rotvec])
     bucket_manip.pick_bucket(ifs, bucket_pos)
     ifs.rtde_control.moveL(move)
-    center = _get_bucket_position(exportde.BUCKET_HEIGHT + 0.05, "center")
+    center = _get_bucket_position(exportde.BUCKET_HEIGHT + exportde.PEDESTAL_HEIGHT, "center")
     ifs.rtde_control.moveJ_IK(center)
     bucket_manip.place_bucket(ifs)
     tcp_pos = ifs.rtde_receive.getActualTCPPose()
