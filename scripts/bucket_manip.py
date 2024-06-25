@@ -1,3 +1,4 @@
+import time
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
@@ -31,6 +32,7 @@ def pick_bucket(ifs: exportde.RobotInterfaces, bucket_pos: exportde.Position) ->
         [exportde.GRIPPER_COG, exportde.BUCKET_COG]
     )
     ifs.rtde_control.setPayload(payload, cog)
+    time.sleep(0.01)
     exportde.get_logger().debug("Updated payload: %s, %s",
                                 ifs.rtde_receive.getPayloadCog(), ifs.rtde_receive.getPayload())
 
@@ -48,6 +50,7 @@ def place_bucket(ifs: exportde.RobotInterfaces) -> list[float]:
     exportde.get_logger().info("Bucket was left at: %s", last_known_bucket_pos)
     _, status = ifs.gripper.move_and_wait_for_pos(0)
     ifs.rtde_control.setPayload(exportde.GRIPPER_MASS, exportde.GRIPPER_COG)
+    time.sleep(0.01)
     exportde.get_logger().debug("Updated payload: %s, %s",
                                 ifs.rtde_receive.getPayloadCog(), ifs.rtde_receive.getPayload())
     if status != ifs.gripper.ObjectStatus.AT_DEST:
