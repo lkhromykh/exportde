@@ -20,7 +20,7 @@ def _get_payload_params(mass: list[float], distance: list[np.ndarray]) -> tuple[
 def pick_bucket(ifs: exportde.RobotInterfaces, bucket_pos: exportde.Position) -> None:
     ifs.gripper.move(0)
     pos, rotvec = np.split(np.asarray(bucket_pos), 2)
-    premove = R.from_rotvec(rotvec).apply([0, 0, -0.15])  # side grasp move
+    premove = R.from_rotvec(rotvec).apply([0, 0, -exportde.GRASP_OFFSET])  # side grasp move
     ifs.rtde_control.moveL(np.r_[pos + premove, rotvec])
     ifs.rtde_control.moveL(bucket_pos, asynchronous=False)
     _, status = ifs.gripper.move_and_wait_for_pos(255, speed=255, force=20)
@@ -54,6 +54,6 @@ def place_bucket(ifs: exportde.RobotInterfaces) -> list[float]:
     exportde.get_logger().debug("Updated payload: %s, %s",
                                 ifs.rtde_receive.getPayloadCog(), ifs.rtde_receive.getPayload())
     if status != ifs.gripper.ObjectStatus.AT_DEST:
-        ifs.gripper.move_and_wait_for_pos(255)
+        ifs.gripper.move_and_wait_for_pos(200)
         raise FailedGraspException("Something preventing gripper from opening.")
     return last_known_bucket_pos

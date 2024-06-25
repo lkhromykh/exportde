@@ -63,11 +63,11 @@ def load(ifs: exportde.RobotInterfaces,
         bucket_pos = last_known_bucket_pos
     else:
         # todo: height should be changed to smthing like BUCKET_HEIGHT - PLATFORM_HEIGHT
-        bucket_pos = _get_bucket_position(0.147, side)
+        bucket_pos = _get_bucket_position(-0.44, side)
     move = bucket_pos.copy()
     move[2] = ifs.rtde_receive.getActualTCPPose()[2]
     pos, rotvec = np.split(np.asarray(move), [3])
-    diff = R.from_rotvec(rotvec).apply([0, 0, -0.15])
+    diff = R.from_rotvec(rotvec).apply([0, 0, -exportde.GRASP_OFFSET])
     ifs.rtde_control.moveJ_IK(np.r_[pos + diff, rotvec])
     bucket_manip.pick_bucket(ifs, bucket_pos)
     ifs.rtde_control.moveL(move)
