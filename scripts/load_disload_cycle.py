@@ -12,7 +12,7 @@ if __name__ == '__main__':
     if side not in ("left", "right"):
         print("Unknown side: ", side)
         exit(1)
-    wait_for = 2.0
+    wait_for = 3.0
     with exportde.RobotInterfaces(exportde.HOST) as ifs:
         while True:
             last_known_bucket_pos = disload(ifs, side=side)
