@@ -1,6 +1,6 @@
 """Interfaces to interact with a UR5e."""
 import time
-from typing import List
+from typing import Callable, List
 
 from dashboard_client import DashboardClient
 from rtde_control import RTDEControlInterface
@@ -44,6 +44,20 @@ class _RTDEControlInterface(RTDEControlInterface):
                  ) -> bool:
         return super().moveL_FK(pose, speed, acceleration, asynchronous)
 
+class _AssertProxy:
+    """Check if resource is available prior to call."""
+
+    def __init__(self,
+                 instance: object,
+                 method: Callable[[object], bool],
+                 ) -> None:
+        self._instance = instance
+        self._method = method
+
+    def __getattr__(self, item):
+        assert self._method(self._instance), f"Resource is not available: {self._instance}"
+        return getattr(self._instance, item)
+
 
 class RobotInterfaces:
     """Handle all the required connections."""
@@ -59,20 +73,20 @@ class RobotInterfaces:
         dashboard_client = DashboardClient(host, verbose=True)
         dashboard_client.connect()
         assert dashboard_client.isInRemoteControl(), "Robot should be in remote control."
-        rtde_receive = RTDEReceiveInterface(host, frequency=frequency)
+        rtde_r = RTDEReceiveInterface(host, frequency=frequency)
         flags = RTDEControlInterface.FLAG_USE_EXT_UR_CAP
         flags |= RTDEControlInterface.FLAG_UPLOAD_SCRIPT
         flags |= RTDEControlInterface.FLAG_VERBOSE
-        rtde_control = _RTDEControlInterface(host, frequency=frequency, flags=flags, ur_cap_port=ur_cap_port)
+        rtde_c = _RTDEControlInterface(host, frequency=frequency, flags=flags, ur_cap_port=ur_cap_port)
         gripper = RobotiqGripper()
         gripper.connect(host, gripper_port)
         if not gripper.is_active():
             gripper.activate(auto_calibrate=False)
 
         self.dashboard_client = dashboard_client
-        self.rtde_control = rtde_control
-        self.rtde_receive = rtde_receive
-        self.gripper = gripper
+        self.rtde_control = _AssertProxy(rtde_c, RTDEControlInterface.isProgramRunning)
+        self.rtde_receive = rtde_r
+        self.gripper = _AssertProxy(gripper, RobotiqGripper.is_active)
 
     def __enter__(self):
         self.assert_ready()
