@@ -1,6 +1,6 @@
 """Interfaces to interact with a UR5e."""
 import time
-from typing import Self
+from typing import List
 
 from dashboard_client import DashboardClient
 from rtde_control import RTDEControlInterface
@@ -16,28 +16,28 @@ __all__ = ("RobotInterfaces",)
 class _RTDEControlInterface(RTDEControlInterface):
     """Overwrite default speed and acceleration and prohibit usage of movePath syntax."""
 
-    def moveL(self, pose: list[float],
+    def moveL(self, pose: List[float],
               speed=constants.MOVEL_SPEED,
               acceleration=constants.MOVEL_ACCELERATION,
               asynchronous=False
               ) -> bool:
         return super().moveL(pose, speed, acceleration, asynchronous)
 
-    def moveJ_IK(self, pose: list[float],
+    def moveJ_IK(self, pose: List[float],
                  speed=constants.MOVEJ_SPEED,
                  acceleration=constants.MOVEJ_ACCELERATION,
                  asynchronous=False
                  ) -> bool:
         return super().moveJ_IK(pose, speed, acceleration, asynchronous)
 
-    def moveJ(self, pose: list[float],
+    def moveJ(self, pose: List[float],
               speed=constants.MOVEJ_SPEED,
               acceleration=constants.MOVEJ_ACCELERATION,
               asynchronous=False
               ) -> bool:
         return super().moveJ(pose, speed, acceleration, asynchronous)
 
-    def moveL_FK(self, pose: list[float],
+    def moveL_FK(self, pose: List[float],
                  speed=constants.MOVEL_SPEED,
                  acceleration=constants.MOVEL_ACCELERATION,
                  asynchronous=False
@@ -74,7 +74,7 @@ class RobotInterfaces:
         self.rtde_receive = rtde_receive
         self.gripper = gripper
 
-    def __enter__(self) -> Self:
+    def __enter__(self):
         self.assert_ready()
         return self
 
@@ -114,15 +114,13 @@ class RobotInterfaces:
 
     @expo_handler
     def handle_safety(self) -> None:
-        match self.rtde_receive.getSafetyMode():
-            case 3:  # protective mode
-                print("Unlocking protective stop, don't Ctrl+C yet.")
-                time.sleep(5.1)  # required by UR soft.
-                self.dashboard_client.closeSafetyPopup()
-                self.dashboard_client.unlockProtectiveStop()
-            case 6 | 7:  # emergency stop
-                print("Robot was emergency stopped. Manual unlock is required.")
-            case 8:  # violation
-                print("Violation ?")
-            case _:
-                pass
+        sm = self.rtde_receive.getSafetyMode()
+        if sm == 3:
+            print("Unlocking protective stop, don't Ctrl+C yet.")
+            time.sleep(5.1)  # required by UR soft.
+            self.dashboard_client.closeSafetyPopup()
+            self.dashboard_client.unlockProtectiveStop()
+        elif (sm == 6) or (sm == 7):
+            print("Robot was emergency stopped. Manual unlock is required.")
+        elif (sm == 8):
+            print("Violation ?")

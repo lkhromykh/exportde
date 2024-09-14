@@ -1,9 +1,9 @@
 """Here are listed hardcoded variables."""
-from typing import Literal
+from typing import Literal, List
 import numpy as np
 
-type Side = Literal["left", "right"]
-type Position = list[float]
+Side = Literal["left", "right"]
+Position = List[float]
 
 pi = np.pi
 hpi = np.pi / 2

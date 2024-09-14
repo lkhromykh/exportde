@@ -10,6 +10,6 @@ setup(
     name="exportde",
     packages=find_packages(),
     version="0.0.1",
-    python_requires=">=3.12",
+    python_requires=">=3",
     install_requries=load_requirements()
 )
