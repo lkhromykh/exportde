@@ -7,7 +7,6 @@ JOINT_TOLERANCE = 0.01
 @exportde.expo_handler
 def unfold(ifs: exportde.RobotInterfaces) -> None:
     """Move to the working position above a platform."""
-    ifs.gripper.move(0)
     cur_joints = ifs.rtde_receive.getActualQ()
     if np.allclose(cur_joints, exportde.UNFOLD_POSITION_J, atol=JOINT_TOLERANCE):
         return
@@ -16,6 +15,7 @@ def unfold(ifs: exportde.RobotInterfaces) -> None:
     if tcp_pos[2] < exportde.SAFE_HEIGHT:
         tcp_pos[2] = exportde.SAFE_HEIGHT
         ifs.rtde_control.moveL(tcp_pos)
+    ifs.gripper.move(0)
     ifs.rtde_control.moveJ(exportde.UNFOLD_POSITION_J)
 
 

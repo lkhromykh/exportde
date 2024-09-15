@@ -1,9 +1,11 @@
+from typing import List, Optional
+
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 import exportde
 
-import movements
-import bucket_manip
+from exportde.primitives import movements
+from exportde.primitives import bucket_manip
 
 
 def _r2l(rot_):
@@ -15,23 +17,23 @@ def _get_bucket_position(height: float, place: str) -> np.ndarray:
     """Predefined hardcoded positions with varying height."""
     hpi = exportde.hpi
     rot = R.from_rotvec([0, hpi, 0]) * R.from_rotvec([hpi, 0, 0])
-    match place:
-        case "center":
-            position = list(exportde.BUCKET_POSITION_XY) + [height] + _r2l(rot)
-        case "right":
-            rot = R.from_rotvec([0, 0, hpi]) * rot
-            position = [0.2, -exportde.PLATFORM_HALFWIDTH, height] + _r2l(rot)
-        case "left":
-            rot = R.from_rotvec([0, 0, -hpi]) * rot
-            position = [-0.25, exportde.PLATFORM_HALFWIDTH, height] + _r2l(rot)
-        case _:
-            raise ValueError(place)
+    if place == "center":
+        position = list(exportde.BUCKET_POSITION_XY) + [height] + _r2l(rot)
+    elif place == "right":
+        rot = R.from_rotvec([0, 0, hpi]) * rot
+        position = [0.2, -exportde.PLATFORM_HALFWIDTH, height] + _r2l(rot)
+    elif place == "left":
+        rot = R.from_rotvec([0, 0, -hpi]) * rot
+        position = [-0.25, exportde.PLATFORM_HALFWIDTH, height] + _r2l(rot)
+    else:
+        raise ValueError(place)
     return np.asarray(position)
 
 
 @exportde.expo_handler
-def disload(ifs: exportde.RobotInterfaces, side: exportde.Side) -> list[float]:
+def disload(ifs: exportde.RobotInterfaces, side: exportde.Side) -> List[float]:
     """Pick an object from the platform and place it on the plane on the left or right side."""
+    raise NotImplementedError("disloading is not implemented with a Sampo.")
     movements.unfold(ifs)
     bucket_pos = _get_bucket_position(exportde.BUCKET_HEIGHT, "center")
     bucket_manip.pick_bucket(ifs, bucket_pos)
@@ -56,8 +58,9 @@ def disload(ifs: exportde.RobotInterfaces, side: exportde.Side) -> list[float]:
 @exportde.expo_handler
 def load(ifs: exportde.RobotInterfaces,
          side: exportde.Side,
-         last_known_bucket_pos: list[float] | None = None
+         last_known_bucket_pos: Optional[List[float]] = None
          ) -> None:
+    raise NotImplementedError("loading is not implemented with a Sampo.")
     movements.unfold(ifs)
     if last_known_bucket_pos is not None:
         bucket_pos = last_known_bucket_pos

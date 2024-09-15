@@ -7,18 +7,21 @@ Position = List[float]
 
 pi = np.pi
 hpi = np.pi / 2
+def _r2d(deg): return pi / 180 * deg
 
 HOST = "192.168.1.179"
-FOLD_POSITION_J = (0, -1.15, 2.7, -pi, hpi, 0)
-UNFOLD_POSITION_J = [-0.272, -1.54044, 1.1367, -1.1684241157821198, -1.5707, -0.272]
+FOLD_POSITION_J = (0, -hpi, _r2d(160), -pi, hpi, -pi)  # TODO: change base rotation
+UNFOLD_POSITION_J = (0, -hpi, hpi, 0.8 * hpi, hpi, -pi)
+TRANSPORTING_POSITION_J = (-270, 0, -164, -102, -176, 270)
+TRANSPORTING_POSITION_J = tuple(map(_r2d, TRANSPORTING_POSITION_J))
 
-MOVEL_SPEED = 0.2  # m/s
+MOVEL_SPEED = 0.1  # m/s
 MOVEL_ACCELERATION = 0.6  # m/s^2
 MOVEJ_SPEED = 0.7  # rad/s
 MOVEJ_ACCELERATION = 0.8  # rad/s^2
 
-PLATFORM_HEIGHT = 0.243 + 0.451
-PLATFORM_HALFWIDTH = 0.60  # 0.537 / 2 + bucket offset
+PLATFORM_HEIGHT = 0.559
+PLATFORM_HALFWIDTH = 0.630 / 2 + 0.2
 SAFE_HEIGHT = 0.  # robot_base
 PEDESTAL_HEIGHT = 0.06
 GRASP_OFFSET = 0.12

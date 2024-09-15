@@ -21,7 +21,10 @@ def get_logger() -> logging.Logger:
     stream_handler.setLevel(logging.DEBUG)
     logger.addHandler(stream_handler)
 
-    filename = os.path.expanduser("~/.exportde/logs")
+    logdir = os.path.expanduser("~/.exportde")
+    if not os.path.exists(logdir):
+        os.mkdir(logdir)
+    filename = os.path.join(logdir, "logs")
     fhandler = logging.FileHandler(filename=filename, encoding="utf-8")
     fhandler.setLevel(logging.ERROR)
     fhandler.setFormatter(formatter)

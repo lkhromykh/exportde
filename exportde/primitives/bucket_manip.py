@@ -1,4 +1,5 @@
 import time
+from typing import List, Tuple
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
@@ -6,7 +7,7 @@ import exportde
 from exportde.exceptions import FailedGraspException, ArmMoveException
 
 
-def _get_payload_params(mass: list[float], distance: list[np.ndarray]) -> tuple[float, np.ndarray]:
+def _get_payload_params(mass: List[float], distance: List[np.ndarray]) -> Tuple[float, np.ndarray]:
     # Payload configuration should be updated on grasp.
     assert len(mass) == len(distance)
     cog = np.zeros(3)
@@ -38,7 +39,7 @@ def pick_bucket(ifs: exportde.RobotInterfaces, bucket_pos: exportde.Position) ->
 
 
 @exportde.expo_handler
-def place_bucket(ifs: exportde.RobotInterfaces) -> list[float]:
+def place_bucket(ifs: exportde.RobotInterfaces) -> List[float]:
     speed = [0, 0, -0.1, 0, 0, 0]
     direction = [0, 0, -1., 0, 0, 0]
     acceleration = 0.2
