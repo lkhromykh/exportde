@@ -131,10 +131,10 @@ class RobotInterfaces:
         sm = self.rtde_receive.getSafetyMode()
         if sm == 3:
             print("Unlocking protective stop, don't Ctrl+C yet.")
-            time.sleep(5.1)  # required by UR soft.
+            time.sleep(5.1)  # required by the UR soft.
             self.dashboard_client.closeSafetyPopup()
             self.dashboard_client.unlockProtectiveStop()
         elif (sm == 6) or (sm == 7):
             print("Robot was emergency stopped. Manual unlock is required.")
-        elif (sm == 8):
+        elif sm == 8:
             print("Violation ?")
