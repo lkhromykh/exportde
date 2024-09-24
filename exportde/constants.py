@@ -9,8 +9,12 @@ pi = np.pi
 hpi = np.pi / 2
 
 HOST = "192.168.1.179"
-FOLD_POSITION_J = (0, -hpi, np.deg2rad(160), -pi, hpi, -pi)  # TODO: change base rotation
-UNFOLD_POSITION_J = (0, -hpi, hpi, 0.8 * hpi, hpi, -pi)
+#FOLD_POSITION_J = (-hpi, -hpi, np.deg2rad(160), -pi, hpi, -pi)  # TODO: change base rotation
+#UNFOLD_POSITION_J = (-hpi, -hpi, hpi, 0.8 * hpi, hpi, -pi)
+FOLD_POSITION_J = (0, -hpi, -np.deg2rad(160), 0, -hpi, -pi) 
+UNFOLD_POSITION_J = (0, -hpi, -hpi, np.deg2rad(-250), -hpi, -pi)
+UNFOLD_POSITION_J = (-5, -80, -70, -270, -81, -180)
+UNFOLD_POSITION_J = tuple(map(np.deg2rad, UNFOLD_POSITION_J))
 TRANSPORTING_POSITION_J = (-270, 0, -164, -102, -176, 270)
 TRANSPORTING_POSITION_J = tuple(map(np.deg2rad, TRANSPORTING_POSITION_J))
 
