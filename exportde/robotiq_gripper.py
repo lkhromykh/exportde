@@ -242,7 +242,7 @@ class RobotiqGripper:
         if log:
             print(f"Gripper auto-calibrated to [{self.get_min_position()}, {self.get_max_position()}]")
 
-    def move(self, position: int, speed: int = 255, force: int = 255) -> Tuple[bool, int]:
+    def move(self, position: int, speed: int, force: int) -> Tuple[bool, int]:
         """Sends commands to start moving towards the given position, with the specified speed and force.
         :param position: Position to move to [min_position, max_position]
         :param speed: Speed to move at [min_speed, max_speed]
@@ -262,7 +262,7 @@ class RobotiqGripper:
         var_dict = OrderedDict([(self.POS, clip_pos), (self.SPE, clip_spe), (self.FOR, clip_for), (self.GTO, 1)])
         return self._set_vars(var_dict), clip_pos
 
-    def move_and_wait_for_pos(self, position: int, speed: int = 255, force: int = 255) -> Tuple[int, ObjectStatus]:  # noqa
+    def move_and_wait_for_pos(self, position: int, speed: int, force: int) -> Tuple[int, ObjectStatus]:  # noqa
         """Sends commands to start moving towards the given position, with the specified speed and force, and
         then waits for the move to complete.
         :param position: Position to move to [min_position, max_position]

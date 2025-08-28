@@ -1,13 +1,6 @@
-"""For specific exceptions handling."""
+class RTDEControlException(Exception):
+    """RTDE Control Interface is not ready"""
 
 
-class ExpoException(Exception):
-    """Base class for all exceptions."""
-
-
-class ArmMoveException(ExpoException):
-    """Arm move command exception."""
-
-
-class FailedGraspException(ExpoException):
-    """Unsuccessful grasp exception."""
+class PolyscopeException(Exception):
+    """Manual intervention is required."""

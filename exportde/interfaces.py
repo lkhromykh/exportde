@@ -1,140 +1,114 @@
-"""Interfaces to interact with a UR5e."""
 import time
-from typing import Callable, List
+import logging
+from contextlib import AbstractContextManager
 
 from dashboard_client import DashboardClient
 from rtde_control import RTDEControlInterface
 from rtde_receive import RTDEReceiveInterface
 
+from exportde import exceptions
 from exportde.robotiq_gripper import RobotiqGripper
-from exportde.logging import expo_handler, get_logger
-from exportde import constants
-
-__all__ = ("RobotInterfaces",)
 
 
-class _RTDEControlInterface(RTDEControlInterface):
-    """Overwrite default speed and acceleration and prohibit usage of movePath syntax."""
-
-    def moveL(self, pose: List[float],
-              speed=constants.MOVEL_SPEED,
-              acceleration=constants.MOVEL_ACCELERATION,
-              asynchronous=False
-              ) -> bool:
-        return super().moveL(pose, speed, acceleration, asynchronous)
-
-    def moveJ_IK(self, pose: List[float],
-                 speed=constants.MOVEJ_SPEED,
-                 acceleration=constants.MOVEJ_ACCELERATION,
-                 asynchronous=False
-                 ) -> bool:
-        return super().moveJ_IK(pose, speed, acceleration, asynchronous)
-
-    def moveJ(self, pose: List[float],
-              speed=constants.MOVEJ_SPEED,
-              acceleration=constants.MOVEJ_ACCELERATION,
-              asynchronous=False
-              ) -> bool:
-        return super().moveJ(pose, speed, acceleration, asynchronous)
-
-    def moveL_FK(self, pose: List[float],
-                 speed=constants.MOVEL_SPEED,
-                 acceleration=constants.MOVEL_ACCELERATION,
-                 asynchronous=False
-                 ) -> bool:
-        return super().moveL_FK(pose, speed, acceleration, asynchronous)
-
-class _AssertProxy:
-    """Check if resource is available prior to call."""
-
-    def __init__(self,
-                 instance: object,
-                 method: Callable[[object], bool],
-                 ) -> None:
-        self._instance = instance
-        self._method = method
-
-    def __getattr__(self, item):
-        assert self._method(self._instance), f"Resource is not available: {self._instance}"
-        return getattr(self._instance, item)
+_log = logging.getLogger(__name__)
 
 
-class RobotInterfaces:
-    """Handle all the required connections."""
+class RobotInterfaces(AbstractContextManager):
 
-    __slots__ = ("dashboard_client", "rtde_control", "rtde_receive", "gripper")
+    __slots__ = (
+        '_dashboard_client',
+        '_rtde_control',
+        '_rtde_receive',
+        '_gripper'
+    )
 
-    def __init__(self,
-                 host: str,
-                 ur_cap_port: int = 50002,
-                 frequency: float = 10.,
-                 gripper_port: int = 63352,
-                 ) -> None:
-        dashboard_client = DashboardClient(host, verbose=True)
-        dashboard_client.connect()
-        assert dashboard_client.isInRemoteControl(), "Robot should be in remote control."
+    def __init__(
+            self,
+            host: str,
+            ur_cap_port: int = 50002,
+            frequency: float = -1.0,
+            gripper_port: int = 63352
+            ) -> None:
+        dashboard = DashboardClient(host)
+        dashboard.connect()
+        if not dashboard.isInRemoteControl():
+            raise exceptions.PolyscopeException('Remote control must be set.')
+
         rtde_r = RTDEReceiveInterface(host, frequency=frequency)
         flags = RTDEControlInterface.FLAG_USE_EXT_UR_CAP
         flags |= RTDEControlInterface.FLAG_UPLOAD_SCRIPT
         flags |= RTDEControlInterface.FLAG_VERBOSE
-        rtde_c = _RTDEControlInterface(host, frequency=frequency, flags=flags, ur_cap_port=ur_cap_port)
+        rtde_c = RTDEControlInterface(
+            host,
+            frequency=frequency,
+            flags=flags,
+            ur_cap_port=ur_cap_port
+        )
         gripper = RobotiqGripper()
         gripper.connect(host, gripper_port)
         if not gripper.is_active():
             gripper.activate(auto_calibrate=False)
 
-        self.dashboard_client = dashboard_client
-        self.rtde_control = _AssertProxy(rtde_c, RTDEControlInterface.isProgramRunning)
-        self.rtde_receive = rtde_r
-        self.gripper = _AssertProxy(gripper, RobotiqGripper.is_active)
+        self._dashboard = dashboard
+        self._rtde_c = rtde_c
+        self._rtde_r = rtde_r
+        self._gripper = gripper
 
-    def __enter__(self):
-        self.assert_ready()
+    def __enter__(self) -> 'RobotInterfaces':
         return self
-
+    
     def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
-        is_handled = False
-        if exc_type is not None:
-            if issubclass(exc_type, KeyboardInterrupt):
-                self.rtde_control.triggerProtectiveStop()
-                is_handled = True
-        self.rtde_control.setPayload(constants.GRIPPER_MASS, constants.GRIPPER_COG)
-        time.sleep(0.1)  # let values update
-        if not self.rtde_control.isSteady():
-            get_logger().warning("Robot is not steady upon exit.")
-        if (safety := self.rtde_receive.getSafetyMode()) != 1:
-            get_logger().info("Handling safety mode change: %d.", safety)
-            self.handle_safety()
+        is_exc_handled = False
+        if issubclass(exc_type, KeyboardInterrupt):
+            _log.error('Protective stop triggered by user')
+            is_exc_handled = self._rtde_c.triggerProtectiveStop()
+
+        time.sleep(0.1)
+        self.handle_safety()
         self.disconnect()
-        return is_handled
+        return is_exc_handled
 
-    def assert_ready(self) -> bool:
-        """After the following checks robot's state can be considered healthy."""
-        assert self.dashboard_client.isConnected(), "Dashboard client is not connected."
-        assert self.rtde_receive.isConnected(), "RTDE Receive is not connected."
-        assert not self.rtde_receive.isProtectiveStopped(), "Protective stop."
-        assert self.rtde_control.isConnected(), "RTDE Control is not connected."
-        assert self.rtde_control.isSteady(), "Robot is not steady."
-        assert self.rtde_control.isProgramRunning(), "Program is not running."
-        assert self.gripper.is_active(), "Gripper is not active."
-        return True
+    def handle_safety(self) -> bool:
+        safety_mode = self._rtde_r.getSafetyMode()
+        match safety_mode:
+            case 0 | 1:  # normal or reduced 
+                return True
+            case 3:  # protective stop
+                _log.info('Protective stop lifted')
+                time.sleep(5.1)  # 5 secs required to pass
+                self._dashboard.closeSafetyPopup()
+                self._dashboard.unlockProtectiveStop()
+                self._rtde_c.reuploadScript()
+                return True
+            case _:
+                return False
 
-    def disconnect(self) -> None:
-        self.rtde_control.stopScript()
-        self.rtde_control.disconnect()
-        self.rtde_receive.disconnect()
-        self.gripper.disconnect()
-        self.dashboard_client.disconnect()
 
-    @expo_handler
-    def handle_safety(self) -> None:
-        sm = self.rtde_receive.getSafetyMode()
-        if sm == 3:
-            print("Unlocking protective stop, don't Ctrl+C yet.")
-            time.sleep(5.1)  # required by the UR soft.
-            self.dashboard_client.closeSafetyPopup()
-            self.dashboard_client.unlockProtectiveStop()
-        elif (sm == 6) or (sm == 7):
-            print("Robot was emergency stopped. Manual unlock is required.")
-        elif sm == 8:
-            print("Violation ?")
+    def disconnect(self):
+        self._rtde_c.stopScript()
+        self._rtde_c.disconnect()
+        self._gripper.disconnect()
+        self._rtde_r.disconnect()
+        self._dashboard.disconnect()
+
+    @property
+    def dashboard_client(self) -> DashboardClient:
+        return self._dashboard
+
+    @property
+    def rtde_control(self) -> RTDEControlInterface:
+        if not self._rtde_c.isConnected():
+            _log.error('RTDEC access when disconnected')
+            raise exceptions.RTDEControlException('Not connected')
+        if not self._rtde_c.isProgramRunning():
+            _log.error('RTDEC accessed when program is not running')
+            raise exceptions.RTDEControlException('Program is not running')
+        return self._rtde_c
+    
+    @property
+    def rtde_receive(self) -> RTDEReceiveInterface:
+        return self._rtde_r
+
+    @property
+    def robotiq_gripper(self) -> RobotiqGripper:
+        return self._gripper
