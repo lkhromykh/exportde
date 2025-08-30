@@ -1,6 +1,5 @@
 import time
 import logging
-from contextlib import AbstractContextManager
 
 from dashboard_client import DashboardClient
 from rtde_control import RTDEControlInterface
@@ -13,12 +12,11 @@ from exportde.robotiq_gripper import RobotiqGripper
 _log = logging.getLogger(__name__)
 
 
-class RobotInterfaces(AbstractContextManager):
-
+class RobotInterfaces:
     __slots__ = (
-        '_dashboard_client',
-        '_rtde_control',
-        '_rtde_receive',
+        '_dashboard',
+        '_rtde_c',
+        '_rtde_r',
         '_gripper'
     )
 
@@ -37,7 +35,6 @@ class RobotInterfaces(AbstractContextManager):
         rtde_r = RTDEReceiveInterface(host, frequency=frequency)
         flags = RTDEControlInterface.FLAG_USE_EXT_UR_CAP
         flags |= RTDEControlInterface.FLAG_UPLOAD_SCRIPT
-        flags |= RTDEControlInterface.FLAG_VERBOSE
         rtde_c = RTDEControlInterface(
             host,
             frequency=frequency,
@@ -57,16 +54,14 @@ class RobotInterfaces(AbstractContextManager):
     def __enter__(self) -> 'RobotInterfaces':
         return self
     
-    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
-        is_exc_handled = False
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         if issubclass(exc_type, KeyboardInterrupt):
             _log.error('Protective stop triggered by user')
-            is_exc_handled = self._rtde_c.triggerProtectiveStop()
+            self._rtde_c.triggerProtectiveStop()
 
         time.sleep(0.1)
         self.handle_safety()
         self.disconnect()
-        return is_exc_handled
 
     def handle_safety(self) -> bool:
         safety_mode = self._rtde_r.getSafetyMode()
@@ -82,7 +77,6 @@ class RobotInterfaces(AbstractContextManager):
                 return True
             case _:
                 return False
-
 
     def disconnect(self):
         self._rtde_c.stopScript()
